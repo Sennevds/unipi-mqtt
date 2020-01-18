@@ -22,6 +22,7 @@ import time
 import threading
 import websocket
 import traceback
+import requests
 from collections import OrderedDict
 from statistics import mean, median
 import math
@@ -33,19 +34,21 @@ import math
 
 # MQTT Connection Variables
 mqtt_address = "192.168.1.126"
-mqtt_subscr_topic = "homeassistant/#" #to what channel to listen for MQTT updates to switch stuff. I use a "send by" topic here as example.
+mqtt_subscr_topic = "unipi_receive/#" #to what channel to listen for MQTT updates to switch stuff. I use a "send by" topic here as example.
 mqtt_client_name = "UNIPI-MQTT"
 mqtt_user = "none" #not implemented auth for mqtt yet
 mqtt_pass = "none"
+
 # Websocket Connection Variables
-ws_server = "192.168.1.125"
+ws_server = "localhost"
+ws_port = 8889
 ws_user = "none" #not implemented auth for ws yet
 ws_pass = "none"
+json_port = 8080
 # Generic Variables
-logging_path = "/var/log/unipi_mqtt.log"
+logging_path = "/home/pi/log/unipi_mqtt.log"
 interval = 29 #realtime data sampling interval (for ais that report every second) to reduce updates to bus and rest API, TODO to fix to more elegant solution.
 dThreads = {} #keeping track of all threads running
-
 ########################################################################################################################
 ###                     Some housekeeping functions to handle threads, logging, etc.                                 ###
 ########################################################################################################################
@@ -104,10 +107,11 @@ def get_function_name():
 ########################################################################################################################
 
 def on_mqtt_message(mqttc, userdata, msg):
-	#print(msg.topic+" "+str(msg.payload))
+	logging.info("new mqtt message")
+	logging.info(msg.topic+" "+str(msg.payload))
 	if "set" in msg.topic:
 		mqtt_msg=str(msg.payload.decode("utf-8","ignore"))
-		logging.debug('{}: Message "{}" on input.'.format(get_function_name(),mqtt_msg))
+		logging.info('{}: Message "{}" on input.'.format(get_function_name(),mqtt_msg))
 		mqtt_msg_history = mqtt_msg
 		if mqtt_msg.startswith("{"):
 			try:
@@ -246,6 +250,14 @@ def dev_di(message_dev):
 	in_list_cntr = 0
 	for config_dev in devdes:
 		if (config_dev['circuit'] == message_dev['circuit'] and config_dev['dev'] == 'input'):						# To check if device switch is in config file and is an input
+			if('no_trigger_on_input' in config_dev):
+				circuit = config_dev['no_trigger_on_input']
+				url = "http://{}:{}/json/di/{}".format(ws_server, json_port,circuit)
+				response = requests.request("GET",url2 , data="{}")
+				js = json.loads(response.text)
+				if js['data']['value'] == 1:
+					return
+				
 			handle_local_presence = 'handle_local' in config_dev 													# becomes True is "handle local" is found in cofig
 			device_delay_presence = 'device_delay' in config_dev 													# becomes True is "device_delay" is found in cofig
 			if (device_delay_presence == True):
@@ -701,7 +713,7 @@ def mqtt_ack(topic,message):
 # The callback for when the client receives a CONNACK response from the server.
 def on_mqtt_connect(mqttc, userdata, flags, rc):
 	logging.info('{}: MQTT Connected with result code {}.'.format(get_function_name(),str(rc)))
-	mqttc.subscribe(mqtt_subscr_topic) # Subscribing in on_connect() means that if we lose the connection and reconnect then subscriptions will be renewed.
+	mqttc.subscribe(mqtt_subscr_topic,1) # Subscribing in on_connect() means that if we lose the connection and reconnect then subscriptions will be renewed.
 	mqtt_online()
 
 def mqtt_online(): #function to bring MQTT devices online to broker
@@ -711,7 +723,7 @@ def mqtt_online(): #function to bring MQTT devices online to broker
 		logging.info('{}: MQTT "online" command to topic "{}" send.'.format(get_function_name(),mqtt_topic_online))
 
 def on_mqtt_subscribe(mqttc, userdata, mid, granted_qos):
-	logging.info('{}: Subscribed with details: mqttc: {}, userdata: {}, mid: {}, granted_qos: {}.'.format(get_function_name(),mqttc,userdata,mid,granted_qos))
+	logging.info('{}: Subscribed with details: mqttc: {}, userdata: {}, mid: {}, granted_qos: {}.'.format(get_function_name(),mqttc.mqtt_subscr_topic,userdata,mid,granted_qos))
 
 
 def on_mqtt_disconnect(mqttc, userdata, rc):
@@ -772,10 +784,10 @@ def firstrun():
 if __name__ == "__main__":
 	### setting some housekeeping functions and globel vars
 	# DEVmonitoring_thread = start_monitoring(seconds_frozen=31, test_interval=15000)
-	logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s',filename=logging_path,level=logging.ERROR,datefmt='%Y-%m-%d %H:%M:%S') #DEBUG,INFO,WARNING,ERROR,CRITICAL
+	logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s',filename=logging_path,level=logging.INFO,datefmt='%Y-%m-%d %H:%M:%S') #DEBUG,INFO,WARNING,ERROR,CRITICAL
 	urllib3_log = logging.getLogger("urllib3") #ignoring informational logging from called modules (rest calls in this case) https://stackoverflow.com/questions/24344045/how-can-i-completely-remove-any-logging-from-requests-module-in-python
 	urllib3_log.setLevel(logging.CRITICAL) 
-	unipy = unipython(ws_server, ws_user, ws_pass)
+	unipy = unipython(ws_server,ws_port, ws_user, ws_pass)
 
 	### Loading the JSON settingsfile
 	dirname = os.path.dirname(__file__)									#set relative path for loading files
@@ -790,6 +802,7 @@ if __name__ == "__main__":
 	mqttc.on_subscribe = on_mqtt_subscribe
 	mqttc.on_unsubscribe = on_mqtt_unsubscribe
 	mqttc.on_message = on_mqtt_message
+	mqttc.username_pw_set(mqtt_user, mqtt_pass)
 	mqttc.connect(mqtt_address, 1883, 600,) #define MQTT server settings
 	t_mqtt = threading.Thread(target=mqttc.loop_forever) #define a thread to run MQTT connection
 	t_mqtt.start() #Start connection to MQTT in thread so non-blocking 
@@ -798,7 +811,7 @@ if __name__ == "__main__":
 	ws_header = {'Authorization': 'Basic {0}','ClientID': 'UniPI'}
 	ws_protocol = 'ws' #wss if secure
 	ws_url = (ws_protocol + "://" + ws_server + "/ws")
-	ws = websocket.WebSocketApp("ws://" + ws_server + "/ws",# header=ws_header,
+	ws = websocket.WebSocketApp("ws://" + ws_server +":" + str(ws_port) + "/ws",# header=ws_header,
 							on_open = on_ws_open,
 							on_message = on_ws_message,
 							on_error = on_ws_error,
