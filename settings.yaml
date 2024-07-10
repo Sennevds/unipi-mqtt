@@ -1,0 +1,53 @@
+logLevel: WARN
+logPath: /home/pi/log/unipi_mqtt.log
+mqtt:
+  hostname: 192.168.0.55
+  clientName: UniPi
+  user: xxx
+  password: xxx
+config:
+  unipi:
+    setTopic: unipi/unipi_receive/set
+    inputTopic: unipi/inputs
+    circuits:
+      - circuit: "2"
+        description: All off
+        dev: input
+        device_normal: "no"
+        name: alloff
+      - circuit: "3"
+        description: 2nd floor hall
+        dev: input
+        device_normal: "no"
+        name: hallway
+      - circuit: "4"
+        description: outside
+        dev: input
+        device_normal: "no"
+        name: outside
+      - circuit: '8'
+        description: Voordeur Beldrukker
+        name: bel
+        dev: input
+        handle_local:
+          type: bel
+          trigger: 'on'
+          rings: 1
+          output_dev: output
+          output_circuit: '8'
+        device_delay: 1
+        device_normal: 'no'
+        unipi_value: 0
+        unipi_prev_value: 0
+        unipi_prev_value_timstamp: 0
+        state_topic: unipi/inputs/bel/state
+      # - circuit: "1"
+      #   description: Dinner brightness
+      #   dev: ai
+      #   name: dinner
+      #   interval: 0
+      # - circuit: "2"
+      #   description: Dinner brightness
+      #   dev: ai
+      #   name: living
+      #   interval: 0
