@@ -1,9 +1,9 @@
 #!/usr/bin/python
-#	Title: unipipython.py
-#	Author: Matthijs van den Berg
-#	Date: 2018-2020 somewhere
-#	Version 0.2 beta
-#	Information from https://evok.api-docs.io/1.0/rest
+# Title: unipipython.py
+# Author: Matthijs van den Berg
+# Date: 2018-2020 somewhere
+# Version 0.2 beta
+# Information from https://evok.api-docs.io/1.0/rest
 
 # VAN VOORBEELD SCRIPT BOVENSTAANDE SITE
 # payload = "{}"
@@ -69,7 +69,7 @@ class UniPython(object):
         payload = {"value": level}
         headers = {"source-system": "unipipython"}
         try:
-            r = requests.post(url, data=payload, headers=headers)
+            requests.post(url, data=payload, headers=headers)
         except Exception as e:
             error_handling(e)
         else:
@@ -135,7 +135,7 @@ class UniPython(object):
             payload = {"value": 1}  # voltage toe te passen 0-10 volt NOG LEVEL VAR MAKEN
             headers = {"source-system": "unipipython"}
             try:
-                result = requests.post(url, data=payload, headers=headers)
+                requests.post(url, data=payload, headers=headers)
             except Exception as e:
                 error_handling(e)
             else:
@@ -143,7 +143,7 @@ class UniPython(object):
             time.sleep(0.1)
             payload = {"value": 0}
             try:
-                result = requests.post(url, data=payload, headers=headers)
+                requests.post(url, data=payload, headers=headers)
             except Exception as e:
                 error_handling(e)
             else:

@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-import gc
+
 
 # Script to turn on / set level of UNIPI s based on MQTT messages that come in.
 # No fancy coding to see here, please move on (Build by a complete amateur ;-) )
@@ -14,12 +14,9 @@ import gc
 
 import paho.mqtt.client as mqtt
 
-# import sys
+import gc
 import json
 import logging
-
-# import datetime
-# import numbers
 import yaml
 from unipipython import UniPython
 import os
@@ -32,7 +29,6 @@ from collections import OrderedDict
 import statistics
 import math
 
-# from hanging_threads import start_monitoring
 
 ########################################################################################################################
 # 											Variables used in the system					 					     ###
@@ -1251,7 +1247,7 @@ def transition_brightness(desired_brightness, trans_time, dev, circuit, topic, m
             short_lived_ws = create_connection(
                 "ws://" + ws_server + "/ws"
             )  # setting up a websocket connect here to send the change commands over. Cannot go to global WS since that is in a function and that won't accept commands from here. Maybe one day change to asyncio websocket?
-            ### Using the stop_thread function to interrupt when needed. Thread.is_running makes sure we listen to external stop signals ###
+            # Using the stop_thread function to interrupt when needed. Thread.is_running makes sure we listen to external stop signals ###
             while int(number_steps) > 0 and thread.is_running():
                 new_level = round(new_level + step_increase, 1)
                 short_lived_ws.send(
