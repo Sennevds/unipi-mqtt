@@ -266,7 +266,9 @@ def handle_json(ms_topic, message):
         )
     # id = circuit_value
     thread_id = dev_value + circuit_value
-    if dev_presence and circuit_presence and state_presence:  # these are the minimal required arguments for this function to work
+    if (
+        dev_presence and circuit_presence and state_presence
+    ):  # these are the minimal required arguments for this function to work
         logging.debug(
             '{}: Valid WebSocket input received, processing message "{}"'.format(
                 get_function_name(), message
@@ -410,7 +412,7 @@ def handle_json(ms_topic, message):
 
 
 def handle_other(
-        ms_topic, message
+    ms_topic, message
 ):  # TODO, initialy started to handle ON and OFF messages, but since we require dev and circuit this doesn't work. Maybe for future ref. and use config file?
     logging.warning(
         '"{}": function not yet implemented! Received message "{}" here.'.format(
@@ -436,9 +438,9 @@ def ws_sanity_check(message):
         )
     else:
         for (
-                message_dev
+            message_dev
         ) in (
-                mesdata
+            mesdata
         ):  # Check if there are updates over websocket and run functions to see if we need to update anything
             if type(message_dev) is dict:
                 message_sort(message_dev)
@@ -459,14 +461,24 @@ def message_sort(message_dev):
         dev_di(message_dev)
     elif message_dev["dev"] == "ai":
         dev_ai(message_dev)
-    elif message_dev["dev"] == "temp":  # temp is being used for the modbus temp only sensors, multi sensors in modbus use dev: 1wdevice since latest evok version
+    elif (
+        message_dev["dev"] == "temp"
+    ):  # temp is being used for the modbus temp only sensors, multi sensors in modbus use dev: 1wdevice since latest evok version
         dev_modbus(message_dev)
-    elif message_dev["dev"] == "1wdevice":  # modules I tested so far as indicator (U1WTVS, U1WTD) that also report humidity and light intensity.
+    elif (
+        message_dev["dev"] == "1wdevice"
+    ):  # modules I tested so far as indicator (U1WTVS, U1WTD) that also report humidity and light intensity.
         dev_modbus(message_dev)
-    elif message_dev["dev"] == "relay":  # not sure what this does yet, not worked with it much.
+    elif (
+        message_dev["dev"] == "relay"
+    ):  # not sure what this does yet, not worked with it much.
         dev_relay(message_dev)
-    elif message_dev["dev"] == "wd":  # Watchdog notices, ignoring and only show in debug logging level (std off)
-        logging.debug("{}: UNIPI WatchDog Notice: {}".format(get_function_name(), message_dev))
+    elif (
+        message_dev["dev"] == "wd"
+    ):  # Watchdog notices, ignoring and only show in debug logging level (std off)
+        logging.debug(
+            "{}: UNIPI WatchDog Notice: {}".format(get_function_name(), message_dev)
+        )
     elif message_dev["dev"] == "ao":
         logging.debug(
             "{}: Received and AO message in web-socket input, most likely a result from a switch action that also triggers this. ignoring".format(
@@ -487,31 +499,39 @@ def dev_di(message_dev):
     tijd = time.time()
     for config_dev in unipiConfig["circuits"]:
         state_topic = f"{unipiConfig['inputTopic']}/{config_dev['name']}"
-        if config_dev["circuit"] == message_dev["circuit"] and config_dev["dev"] == "input":  # To check if device switch is in config file and is an input
+        if (
+            config_dev["circuit"] == message_dev["circuit"]
+            and config_dev["dev"] == "input"
+        ):  # To check if device switch is in config file and is an input
             raw_mode_presence = (
-                    "raw_mode" in config_dev
+                "raw_mode" in config_dev
             )  # becomes True is "raw_mode" is found in config
             device_type_presence = (
-                    "device_type" in config_dev
+                "device_type" in config_dev
             )  # becomes True is "device_type" is found in config
             handle_local_presence = (
-                    "handle_local" in config_dev
+                "handle_local" in config_dev
             )  # becomes True is "handle local" is found in config
             device_delay_presence = (
-                    "device_delay" in config_dev
+                "device_delay" in config_dev
             )  # becomes True is "device_delay" is found in config
             if device_delay_presence:
                 if config_dev["device_delay"] == 0:
                     device_delay_presence = False
             # If raw mode is selected a WEbdav message will only be transformed into a MQTT message, nothing else.
-            if raw_mode_presence:  # RAW modes just pushes all fields in the websocket message out via MQTT TODO
+            if (
+                raw_mode_presence
+            ):  # RAW modes just pushes all fields in the websocket message out via MQTT TODO
                 logging.error(
                     '    {}: TO BE IMPLEMENTED".'.format(get_function_name())
                 )  # todo. Can we just add input iD and raw to make this work? stop the loop here?
             # Implemented device types per 2020 to filter counter for pulse based counter devices like water meters. Just count counter on NO devices that turn on. Since WebDav does not send a trigger for every update we calculate the delta betwee this and the previous update.
             elif device_type_presence:
                 if config_dev["device_type"] == "counter":
-                    if (("max_delay_value" in config_dev) or ("device_delay" in config_dev)) is False:
+                    if (
+                        ("max_delay_value" in config_dev)
+                        or ("device_delay" in config_dev)
+                    ) is False:
                         logging.error(
                             "{}: Error in Config file, missing fields".format(
                                 get_function_name()
@@ -519,7 +539,9 @@ def dev_di(message_dev):
                         )
                     else:
                         config_dev["counter_value"] = message_dev["counter"]
-                        if config_dev["counter_value"] == 0:  # for bootup of script to set initial value
+                        if (
+                            config_dev["counter_value"] == 0
+                        ):  # for bootup of script to set initial value
                             config_dev["counter_value"] = message_dev["counter"]
                             if config_dev["unipi_value"] == 0:
                                 config_dev["unipi_value"] = message_dev["counter"] - 1
@@ -538,8 +560,8 @@ def dev_di(message_dev):
                     )
                 )
                 if tijd >= (
-                        config_dev["unipi_prev_value_timestamp"]
-                        + config_dev["device_delay"]
+                    config_dev["unipi_prev_value_timestamp"]
+                    + config_dev["device_delay"]
                 ):
                     if message_dev["value"] == 1:
                         if config_dev["unipi_value"] == 1:
@@ -641,7 +663,9 @@ def dev_di(message_dev):
                             dev_switch_on(
                                 state_topic
                             )  # sends MQTT command, removed as test since this is done in handle_local_switch_toggle too
-                    elif config_dev["device_normal"] == "nc":  # Turn off devices that switch to their normal mode
+                    elif (
+                        config_dev["device_normal"] == "nc"
+                    ):  # Turn off devices that switch to their normal mode
                         # and have no delay configured! Delayed devices will be turned off somewhere else
                         if handle_local_presence:
                             pass  # OLD: handle_local_switch_toggle(message_dev,config_dev) # we do a pass since a pulse based switch sends a ON and OFF in 1 action, we only need 1 action to happen!
@@ -702,9 +726,12 @@ def dev_di(message_dev):
 def dev_ai(message_dev):
     # Function to handle Analoge Inputs from WebSocket (UniPi), mainly focussed on LUX from analoge input now. using a sample rate to reduce rest calls to domotics
     for config_dev in unipiConfig["circuits"]:
-        if config_dev["circuit"] == message_dev["circuit"] and config_dev["dev"] == "ai":
+        if (
+            config_dev["circuit"] == message_dev["circuit"]
+            and config_dev["dev"] == "ai"
+        ):
             int_presence = (
-                    "interval" in config_dev
+                "interval" in config_dev
             )  # check to see if "interval" in config. If not throw an error. If you want to disable average, set to 0.
             if int_presence:
                 cntr = intervals_counter[config_dev["dev"] + config_dev["circuit"]]
@@ -718,12 +745,12 @@ def dev_ai(message_dev):
                     lux = int(
                         round(
                             (
-                                    statistics.mean(
-                                        intervals_average[
-                                            config_dev["dev"] + config_dev["circuit"]
-                                            ]
-                                    )
-                                    * 200
+                                statistics.mean(
+                                    intervals_average[
+                                        config_dev["dev"] + config_dev["circuit"]
+                                    ]
+                                )
+                                * 200
                             ),
                             0,
                         )
@@ -821,12 +848,12 @@ def dev_modbus(message_dev):
         try:
             state_topic = f"{unipiConfig['inputTopic']}/{config_dev['name']}"
             if config_dev["circuit"] == message_dev["circuit"] and (
-                    config_dev["dev"] == "temp"
-                    or config_dev["dev"] == "humidity"
-                    or config_dev["dev"] == "light"
+                config_dev["dev"] == "temp"
+                or config_dev["dev"] == "humidity"
+                or config_dev["dev"] == "light"
             ):
                 int_presence = (
-                        "interval" in config_dev
+                    "interval" in config_dev
                 )  # check to see if "interval" in config. If not throw an error. If you want to disable average, set to 0.
                 if int_presence:
                     cntr = intervals_counter[config_dev["dev"] + config_dev["circuit"]]
@@ -834,14 +861,15 @@ def dev_modbus(message_dev):
                     if config_dev["dev"] == "temp":
                         if cntr <= config_dev["interval"]:
                             if message_dev["typ"] == "DS18B20":
-                                if -55 <= float(
-                                        message_dev["value"]) <= 125:  # sensor should be able to do -55 to +125 celcius
+                                if (
+                                    -55 <= float(message_dev["value"]) <= 125
+                                ):  # sensor should be able to do -55 to +125 celcius
                                     intervals_average[
                                         config_dev["dev"] + config_dev["circuit"]
-                                        ][cntr] = float(message_dev["value"])
+                                    ][cntr] = float(message_dev["value"])
                                     intervals_counter[
                                         config_dev["dev"] + config_dev["circuit"]
-                                        ] += 1
+                                    ] += 1
                                 else:
                                     logging.error(
                                         '{}: Message "{}" is out of range, temp smaller than -55 or larger than 125.'.format(
@@ -849,14 +877,15 @@ def dev_modbus(message_dev):
                                         )
                                     )
                             elif message_dev["typ"] == "DS2438":
-                                if -55 <= float(
-                                        message_dev["temp"]) <= 125:  # sensor should be able to do -55 to +125 celcius
+                                if (
+                                    -55 <= float(message_dev["temp"]) <= 125
+                                ):  # sensor should be able to do -55 to +125 celcius
                                     intervals_average[
                                         config_dev["dev"] + config_dev["circuit"]
-                                        ][cntr] = float(message_dev["temp"])
+                                    ][cntr] = float(message_dev["temp"])
                                     intervals_counter[
                                         config_dev["dev"] + config_dev["circuit"]
-                                        ] += 1
+                                    ] += 1
                                 else:
                                     logging.error(
                                         '{}: Message "{}" is out of range, temp smaller than -55 or larger than 125.'.format(
@@ -873,13 +902,13 @@ def dev_modbus(message_dev):
                             avg_temperature = statistics.mean(
                                 intervals_average[
                                     config_dev["dev"] + config_dev["circuit"]
-                                    ]
+                                ]
                             )
                             avg_temperature = round(avg_temperature, 1)
                             mqtt_set_temp(state_topic, avg_temperature)
                             intervals_counter[
                                 config_dev["dev"] + config_dev["circuit"]
-                                ] = 0
+                            ] = 0
                     # config for 1-wire humidity sensors
                     elif config_dev["dev"] == "humidity":
                         if cntr <= config_dev["interval"]:
@@ -887,10 +916,10 @@ def dev_modbus(message_dev):
                                 if 0 <= float(message_dev["humidity"]) <= 100:
                                     intervals_average[
                                         config_dev["dev"] + config_dev["circuit"]
-                                        ][cntr] = float(round(message_dev["humidity"], 1))
+                                    ][cntr] = float(round(message_dev["humidity"], 1))
                                     intervals_counter[
                                         config_dev["dev"] + config_dev["circuit"]
-                                        ] += 1
+                                    ] += 1
                                 else:
                                     logging.error(
                                         '{}: Message "{}" is out of range, humidity smaller or larger than 100.'.format(
@@ -908,14 +937,14 @@ def dev_modbus(message_dev):
                                 statistics.mean(
                                     intervals_average[
                                         config_dev["dev"] + config_dev["circuit"]
-                                        ]
+                                    ]
                                 )
                             )
                             avg_humidity = round(avg_humidity, 1)
                             mqtt_set_humi(state_topic, avg_humidity)
                             intervals_counter[
                                 config_dev["dev"] + config_dev["circuit"]
-                                ] = 0
+                            ] = 0
                     # config for 1-wire light / lux sensors
                     elif config_dev["dev"] == "light":
                         if cntr <= config_dev["interval"]:
@@ -923,10 +952,10 @@ def dev_modbus(message_dev):
                                 if 0 <= float(message_dev["vis"]) <= 0.25:
                                     intervals_average[
                                         config_dev["dev"] + config_dev["circuit"]
-                                        ][cntr] = float(round(message_dev["vis"], 1))
+                                    ][cntr] = float(round(message_dev["vis"], 1))
                                     intervals_counter[
                                         config_dev["dev"] + config_dev["circuit"]
-                                        ] += 1
+                                    ] += 1
                                 else:
                                     logging.error(
                                         '{}: Message "{}" is out of range, humidity smaller or larger than 100.'.format(
@@ -944,7 +973,7 @@ def dev_modbus(message_dev):
                                 statistics.mean(
                                     intervals_average[
                                         config_dev["dev"] + config_dev["circuit"]
-                                        ]
+                                    ]
                                 )
                             )
                             if avg_illumination < 0:
@@ -955,7 +984,7 @@ def dev_modbus(message_dev):
                             mqtt_set_lux(state_topic, avg_illumination)
                             intervals_counter[
                                 config_dev["dev"] + config_dev["circuit"]
-                                ] = 0
+                            ] = 0
                 else:
                     logging.error(
                         '{}: CONFIG ERROR : 1-WIRE sensor "{}" is missing "interval" in config file. Set to 0 to disable or set sampling rate with a higher value.'.format(
@@ -1038,7 +1067,9 @@ def set_state(dev, circuit, state, topic, message):
                 get_function_name()
             )
         )
-    elif dev == "relay" or dev == "output" or (dev == "analogoutput" and state == "off"):
+    elif (
+        dev == "relay" or dev == "output" or (dev == "analogoutput" and state == "off")
+    ):
         if state == "on":
             stat_code = unipy.set_on(dev, circuit)
         elif state == "off":
@@ -1067,7 +1098,7 @@ def set_state(dev, circuit, state, topic, message):
 
 
 def set_duration(
-        dev, circuit, state, duration, topic, message
+    dev, circuit, state, duration, topic, message
 ):  # Set to switch on for a certain amount of time, I use this to open a rooftop window so for example 30 = 30 seconds
     logging.debug('   {}: SOF with message "{}".'.format(get_function_name(), message))
     global dThreads
@@ -1080,7 +1111,9 @@ def set_duration(
                 get_function_name()
             )
         )
-    elif dev == "relay" or dev == "output" or (dev == "analogoutput" and state == "off"):
+    elif (
+        dev == "relay" or dev == "output" or (dev == "analogoutput" and state == "off")
+    ):
         logging.info(
             "   {}: Setting {} device {} to state {} for {} seconds.".format(
                 get_function_name(), dev, circuit, state, time
@@ -1092,7 +1125,9 @@ def set_duration(
         elif state == "off":
             rev_state = "on"
             stat_code = unipy.set_off(dev, circuit)
-        if int(stat_code) == 200:  # sending return message straight away otherwise the swithc will only turn on after delay time
+        if (
+            int(stat_code) == 200
+        ):  # sending return message straight away otherwise the swithc will only turn on after delay time
             mqtt_ack(topic, message)
             logging.info(
                 '    {}: Set {} for circuit "{}".'.format(
@@ -1119,7 +1154,9 @@ def set_duration(
                 message.update(
                     {"state": "on"}
                 )  # need to change on to off in mqtt message
-            if int(stat_code) == 200:  # sending return message straight away otherwise the swithc will only turn on after delay time
+            if (
+                int(stat_code) == 200
+            ):  # sending return message straight away otherwise the swithc will only turn on after delay time
                 mqtt_ack(topic, message)
                 logging.info(
                     '    {}: Set {} for circuit "{}".'.format(
@@ -1190,7 +1227,7 @@ def transition_brightness(desired_brightness, trans_time, dev, circuit, topic, m
         float(desired_brightness) / 25.5, 1
     )  # calc desired level to 1/100 in stead of 256 steps for 0-10 volts
     delta_level = (
-            desired_level - current_level["value"]
+        desired_level - current_level["value"]
     )  # determine delta based on from and to levels
     number_steps = abs(
         round(delta_level * 10, 0)
@@ -1333,12 +1370,18 @@ def off_commands():
         device_type_presence = "device_type" in config_dev
         handle_local_presence = "handle_local" in config_dev
         if device_type_presence:
-            if config_dev["device_type"] == "counter":  # need this to set counter to 0 via MQTT otherwise only messages with a value are send
-                if tijd >= (config_dev["unipi_prev_value_timstamp"] + config_dev["device_delay"]):
-                    if (config_dev["counter_value"] >= config_dev["unipi_value"]) and (config_dev["counter_value"] > 0):
+            if (
+                config_dev["device_type"] == "counter"
+            ):  # need this to set counter to 0 via MQTT otherwise only messages with a value are send
+                if tijd >= (
+                    config_dev["unipi_prev_value_timstamp"] + config_dev["device_delay"]
+                ):
+                    if (config_dev["counter_value"] >= config_dev["unipi_value"]) and (
+                        config_dev["counter_value"] > 0
+                    ):
                         counter = config_dev["counter_value"]
                         delta = (
-                                config_dev["counter_value"] - config_dev["unipi_value"]
+                            config_dev["counter_value"] - config_dev["unipi_value"]
                         )  # abuse of unipi value, but since we dont use this for counter devices...
                         config_dev["unipi_value"] = config_dev["counter_value"]
                         config_dev["unipi_prev_value_timstamp"] = tijd
@@ -1365,13 +1408,18 @@ def off_commands():
                         get_function_name(), config_dev["device_type"]
                     )
                 )
-        elif "device_delay" in config_dev:  # Only switch devices off that have a delay > 0. Devices with no delay or delay '0' do not need to turned off or are turned off bij a new status (like door sensor)
+        elif (
+            "device_delay" in config_dev
+        ):  # Only switch devices off that have a delay > 0. Devices with no delay or delay '0' do not need to turned off or are turned off bij a new status (like door sensor)
             if config_dev["device_delay"] > 0 and tijd >= (
-                    config_dev["unipi_prev_value_timstamp"] + config_dev["device_delay"]
+                config_dev["unipi_prev_value_timstamp"] + config_dev["device_delay"]
             ):
                 # dev_switch_off(stateTopic) #device uit zetten
                 # if config_dev['unipi_value'] == 1 and config_dev['device_normal'] == 'no':
-                if config_dev["unipi_value"] == 1 and config_dev["device_normal"] == "no":
+                if (
+                    config_dev["unipi_value"] == 1
+                    and config_dev["device_normal"] == "no"
+                ):
                     dev_switch_off(state_topic)  # device uit zetten
                     if handle_local_presence:
                         handle_local_switch_toggle("", config_dev)
@@ -1384,7 +1432,10 @@ def off_commands():
                             config_dev["state_topic"],
                         )
                     )
-                elif config_dev["unipi_value"] == 0 and config_dev["device_normal"] == "nc":
+                elif (
+                    config_dev["unipi_value"] == 0
+                    and config_dev["device_normal"] == "nc"
+                ):
                     dev_switch_off(state_topic)  # device uit zetten
                     if handle_local_presence:
                         handle_local_switch_toggle("", config_dev)
@@ -1403,7 +1454,7 @@ def off_commands():
 
 
 def mqtt_set_counter(
-        mqtt_topic, counter, delta
+    mqtt_topic, counter, delta
 ):  # published an MQTT message with a counter delta based on the interval defined or between de messages received. Messages from webdav might not trigger every pulse.
     logging.debug("Hit Functions {}".format(get_function_name()))
     send_msg = {"counter_delta": delta, "counter": counter}
@@ -1485,12 +1536,14 @@ def handle_local_switch_toggle(message_dev, config_dev):
             config_dev["handle_local"]["level"],
         )
         # unipy.toggle_dimmer('analogoutput', '2_03', 7)
-        if success == 200:  # I know, mixing up status and succes here from the unipython class... some day ill fix it.
+        if (
+            success == 200
+        ):  # I know, mixing up status and succes here from the unipython class... some day ill fix it.
             if status == 0:
                 mqtt_message = (
-                        '{"state": "off", "circuit": "'
-                        + config_dev["handle_local"]["output_circuit"]
-                        + '", "dev": "analogoutput"}'
+                    '{"state": "off", "circuit": "'
+                    + config_dev["handle_local"]["output_circuit"]
+                    + '", "dev": "analogoutput"}'
                 )
                 mqtt_topic_set(
                     state_topic, mqtt_message
@@ -1504,11 +1557,11 @@ def handle_local_switch_toggle(message_dev, config_dev):
             elif status == 1:
                 brightness = math.ceil(config_dev["handle_local"]["level"] * 25.5)
                 mqtt_message = (
-                        '{"state": "on", "circuit": "'
-                        + config_dev["handle_local"]["output_circuit"]
-                        + '", "dev": "analogoutput", "brightness": '
-                        + str(brightness)
-                        + "}"
+                    '{"state": "on", "circuit": "'
+                    + config_dev["handle_local"]["output_circuit"]
+                    + '", "dev": "analogoutput", "brightness": '
+                    + str(brightness)
+                    + "}"
                 )
                 mqtt_topic_set(
                     state_topic, mqtt_message
@@ -1552,9 +1605,9 @@ def handle_local_switch_toggle(message_dev, config_dev):
             if status == 0:
                 # mqtt_message = 'OFF' #used this for simple MQTT ack message, but looks like I don't use this, so changing to more advanced json MQTT message. This mist match payload_on / off messages!
                 mqtt_message = (
-                        '{"state": "off", "circuit": "'
-                        + config_dev["handle_local"]["output_circuit"]
-                        + '", "dev": "output"}'
+                    '{"state": "off", "circuit": "'
+                    + config_dev["handle_local"]["output_circuit"]
+                    + '", "dev": "output"}'
                 )
                 mqtt_topic_set(
                     state_topic, mqtt_message
@@ -1568,9 +1621,9 @@ def handle_local_switch_toggle(message_dev, config_dev):
             elif status == 1:
                 # mqtt_message = 'ON' #used this for simple MQTT ack message, but looks like I don't use this, so changing to more advanced json MQTT message. This mist match payload_on / off messages at HA to work / show status there.
                 mqtt_message = (
-                        '{"state": "on", "circuit": "'
-                        + config_dev["handle_local"]["output_circuit"]
-                        + '", "dev": "output"}'
+                    '{"state": "on", "circuit": "'
+                    + config_dev["handle_local"]["output_circuit"]
+                    + '", "dev": "output"}'
                 )
                 mqtt_topic_set(
                     state_topic, mqtt_message
@@ -1845,7 +1898,7 @@ def firstrun():
             global intervals_average
             global intervals_counter
             intervals_average[config_dev["circuit"]] = [0.0] * (
-                    config_dev["interval"] + 1
+                config_dev["interval"] + 1
             )
             intervals_counter[config_dev["circuit"]] = 0
 
